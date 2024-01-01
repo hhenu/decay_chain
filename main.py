@@ -51,7 +51,7 @@ def get_nuclides(src_nuclei: str, csv_path: str = None, delim: str = ",") -> Non
     nuclides = []
     while stack:
         nuc = stack.pop()
-        nuc_data = get_data(nuc=nuc, csv_data=csv_data)
+        nuc_data = get_data(nuc=nuc, csv_data=csv_data, delim=delim)
         sym = nuc_data["symbol"]
         n = nuc_data["n"]
         z = nuc_data["z"]
@@ -65,7 +65,7 @@ def get_nuclides(src_nuclei: str, csv_path: str = None, delim: str = ",") -> Non
 
 
 def main() -> None:
-    src_nuclei = "he4"
+    src_nuclei = "u238"
     csv_path = "livechart.csv"
     get_nuclides(src_nuclei=src_nuclei, csv_path=csv_path)
 
