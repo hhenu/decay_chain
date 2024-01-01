@@ -4,8 +4,12 @@ initial mass of radioactive material, calculates the nuclide concentrations of d
 products as a function of time.
 """
 
+import logging
+
 from nuclide import Nuclide
 from data_fetching import get_data
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def _read_csv(filepath: str) -> list[str]:
@@ -15,8 +19,10 @@ def _read_csv(filepath: str) -> list[str]:
     """
     if not filepath.endswith(".csv"):
         raise ValueError("File seems to not be a csv file")
+    logging.info(msg=f"Reading file {filepath}")
     with open(filepath, "r") as f:
         data = f.readlines()
+    logging.info(msg=f"Done reading file {filepath}")
     return data
 
 
@@ -25,6 +31,7 @@ def _get_daughters(decay_data: list[dict]) -> list:
     :param decay_data:
     :return:
     """
+    logging.info(msg=f"Parsing daughter nuclides")
     daughters = []
     for decay in decay_data:
         sym = decay["d_symbol"]
@@ -33,6 +40,7 @@ def _get_daughters(decay_data: list[dict]) -> list:
         a = str(int(z) + int(n))
         name = sym + a
         daughters.append(name)
+    logging.info(msg=f"Found daughter nuclides: {daughters}")
     return daughters
 
 
@@ -51,6 +59,7 @@ def get_nuclides(src_nuclei: str, csv_path: str = None, delim: str = ",") -> Non
     nuclides = []
     while stack:
         nuc = stack.pop()
+        logging.info(msg=f"Current nuclide: {nuc}")
         nuc_data = get_data(nuc=nuc, csv_data=csv_data, delim=delim)
         sym = nuc_data["symbol"]
         n = nuc_data["n"]
@@ -65,9 +74,9 @@ def get_nuclides(src_nuclei: str, csv_path: str = None, delim: str = ",") -> Non
 
 
 def main() -> None:
-    src_nuclei = "u238"
+    src_nuclei = "xe135"
     csv_path = "livechart.csv"
-    get_nuclides(src_nuclei=src_nuclei, csv_path=csv_path)
+    get_nuclides(src_nuclei=src_nuclei, csv_path=None)
 
 
 if __name__ == "__main__":

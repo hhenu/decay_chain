@@ -4,6 +4,7 @@ URL: nds.iaea.org/relnsd/v1/data?
 See: https://www-nds.iaea.org/relnsd/vcharthtml/api_v0_guide.html
 """
 
+import logging
 import requests
 
 from nuc_table import fetch
@@ -16,8 +17,8 @@ BASE_URL = "http://nds.iaea.org/relnsd/v1/data?"
 DECAY_HEADERS = ["decay_%", "d_symbol", "d_n", "d_z",
                  "p_energy"]
 NUC_HEADERS = ["z", "n", "symbol", "atomic_mass", "half_life_sec"]
-CSV_HEADERS = ["z", "n", "symbol", "atomic_mass", "half_life_sec", "decay_1", "decay_1_%", "decay_2",
-               "decay_2_%", "decay_3", "decay_3_%"]
+CSV_HEADERS = ["z", "n", "symbol", "atomic_mass", "half_life_sec", "decay_1",
+               "decay_1_%", "decay_2", "decay_2_%", "decay_3", "decay_3_%"]
 
 # Currently upported decay types
 CSV_DECAY_MODES = ["a", "b-", "ec+b+"]  # These are used in the csv file
@@ -30,18 +31,19 @@ def _send_request(url: str) -> Response:
     :param url:
     :return:
     """
+    logging.info(msg=f"Sending request to {url}")
     res = None
     try:
         res = requests.get(url=url, timeout=10)
         res.raise_for_status()
     except requests.exceptions.HTTPError as err:
-        print(f"HTTP error: {err}")
+        logging.error(msg=f"HTTP error: {err}")
     except requests.exceptions.ConnectionError as err:
-        print(f"Connection error: {err}")
+        logging.error(msg=f"Connection error: {err}")
     except requests.exceptions.Timeout as err:
-        print(f"Request timed out: {err}")
+        logging.error(msg=f"Request timed out: {err}")
     except requests.exceptions.RequestException as err:
-        print(f"Request failed due to {err}")
+        logging.error(msg=f"Request failed due to {err}")
     return res
 
 
@@ -114,6 +116,7 @@ def _get_nuclide_data(nuc: str) -> Optional[dict]:
     :param nuc:
     :return:
     """
+    logging.info(msg=f"Getting nuclide info for {nuc}")
     url = f"{BASE_URL}fields=ground_states&nuclides={nuc}"
     res = _send_request(url=url)
     # Check if the API returns just some error code
@@ -129,6 +132,7 @@ def _get_decay_type_data(nuc: str, decay_type: str) -> Optional[dict]:
     :param decay_type:
     :return:
     """
+    logging.info(msg=f"Getting decay type data for {nuc} and type {decay_type}")
     url = f"{BASE_URL}fields=decay_rads&nuclides={nuc}&rad_types={decay_type}"
     res = _send_request(url=url)
     # Check if the API returns just some error code
@@ -142,6 +146,7 @@ def _get_decay_data(nuc: str) -> list[dict]:
     :param nuc:
     :return:
     """
+    logging.info(msg=f"Getting decay data for {nuc}")
     data = []
     for decay_type in API_DECAY_MODES:
         decay_data = _get_decay_type_data(nuc=nuc, decay_type=decay_type)
@@ -200,8 +205,6 @@ def _format_decays(data: dict) -> dict:
     :param data:
     :return:
     """
-    # [{'decay_%': 35.94, 'd_symbol': 'Tl', 'd_n': 127.0, 'd_z': 81.0},
-    #  {'decay_%': 64.06, 'd_symbol': 'Po', 'd_n': 128.0, 'd_z': 84.0}]
     headers_to_keep = ["z", "n", "symbol", "atomic_mass", "half_life_sec"]
     decays = []
     for i in range(1, 4):
@@ -212,7 +215,7 @@ def _format_decays(data: dict) -> dict:
         mode = data[mode_header].lower()
         percentage = data[percentage_header]
         if mode not in CSV_DECAY_MODES:
-            print(f"Unsupported decay mode {mode}, ignoring it for now.")
+            logging.info(msg=f"Unsupported decay mode {mode}, ignoring it for now.")
             continue
         sym, z, n = _find_daughter(parent_z=data["z"], parent_n=data["n"], mode=mode)
         decays.append({"decay_%": percentage,
@@ -235,6 +238,7 @@ def _fetch_from_csv(nuc: str, data: list[str], delim: str = ",") -> dict:
     :param data:
     :return:
     """
+    logging.info(msg=f"Fetching data for {nuc} from the csv")
     sym_n, a_n = _split_nuclide_name(nuc=nuc)
     headers, data = data[0].split(delim), data[3:]
     # Find the row of the correct nuclide
