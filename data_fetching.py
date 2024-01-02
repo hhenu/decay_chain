@@ -4,25 +4,20 @@ URL: nds.iaea.org/relnsd/v1/data?
 See: https://www-nds.iaea.org/relnsd/vcharthtml/api_v0_guide.html
 """
 
+import os
 import logging
 import requests
 
 from nuc_table import fetch
-from typing import Optional
 from requests import Response
 
 # Some constants/config params
 BASE_URL = "http://nds.iaea.org/relnsd/v1/data?"
-
-DECAY_HEADERS = ["decay_%", "d_symbol", "d_n", "d_z",
-                 "p_energy"]
-NUC_HEADERS = ["z", "n", "symbol", "atomic_mass", "half_life_sec"]
 CSV_HEADERS = ["z", "n", "symbol", "atomic_mass", "half_life_sec", "decay_1",
                "decay_1_%", "decay_2", "decay_2_%", "decay_3", "decay_3_%"]
 
 # Currently upported decay types
 CSV_DECAY_MODES = ["a", "b-", "ec+b+"]  # These are used in the csv file
-API_DECAY_MODES = ["a", "bm", "bp"]  # These are used by the decay_rads API
 
 
 def _send_request(url: str) -> Response:
@@ -67,92 +62,31 @@ def _parse_value_type(value: str) -> str | int | float:
     return value
 
 
-def _parse_decay_data(res: str) -> dict:
+def _save_csv(data: str, filepath: str) -> None:
     """
-    Parses decay data from the response
-    :param res:
+    :param data:
+    :param filepath:
     :return:
     """
-    lines = res.splitlines()
-    headers, lines = lines[0].split(","), lines[1:]
-    header_inds = {h: headers.index(h) for h in DECAY_HEADERS}
-    data = None
-    for line in lines:
-        line = line.split(",")
-        if len(line) < 2:  # Some lines might be just '\n'
-            continue
-        # Filter out radiations coming from metastable states
-        if line[header_inds["p_energy"]] != "0":
-            continue
-        data = {}
-        for h in DECAY_HEADERS:
-            if h == "p_energy":
-                continue
-            value = line[header_inds[h]]
-            data[h] = _parse_value_type(value=value)
-        break
-    return data
+    if not filepath.endswith(".csv"):
+        raise ValueError(f"Filepath must point to a csv file. Now got {filepath}")
+    logging.info(msg=f"Writing csv file {filepath}")
+    with open(file=filepath, mode="w") as f:
+        f.write(data)
+    logging.info(msg=f"Generated csv file {filepath}")
 
 
-def _parse_nuclide_data(res: str) -> dict:
+def _read_csv(filepath: str) -> list[str]:
     """
-    Parses nuclide data from the response
-    :param res:
+    :param filepath:
     :return:
     """
-    res = res.splitlines()
-    # The response might have a third empty line, hence we take only first two
-    headers, dataline = res[0].split(","), res[1].split(",")
-    header_inds = {h: headers.index(h) for h in NUC_HEADERS}
-    data = {}
-    for h in NUC_HEADERS:
-        value = dataline[header_inds[h]]
-        data[h] = _parse_value_type(value=value)
-    return data
-
-
-def _get_nuclide_data(nuc: str) -> Optional[dict]:
-    """
-    :param nuc:
-    :return:
-    """
-    logging.info(msg=f"Getting nuclide info for {nuc}")
-    url = f"{BASE_URL}fields=ground_states&nuclides={nuc}"
-    res = _send_request(url=url)
-    # Check if the API returns just some error code
-    if len(res.text.strip()) < 2:
-        return None
-    return _parse_nuclide_data(res=res.text)
-
-
-def _get_decay_type_data(nuc: str, decay_type: str) -> Optional[dict]:
-    """
-    Gets data for the specified decay type
-    :param nuc:
-    :param decay_type:
-    :return:
-    """
-    logging.info(msg=f"Getting decay type data for {nuc} and type {decay_type}")
-    url = f"{BASE_URL}fields=decay_rads&nuclides={nuc}&rad_types={decay_type}"
-    res = _send_request(url=url)
-    # Check if the API returns just some error code
-    if len(res.text.strip()) < 2:
-        return None
-    return _parse_decay_data(res=res.text)
-
-
-def _get_decay_data(nuc: str) -> list[dict]:
-    """
-    :param nuc:
-    :return:
-    """
-    logging.info(msg=f"Getting decay data for {nuc}")
-    data = []
-    for decay_type in API_DECAY_MODES:
-        decay_data = _get_decay_type_data(nuc=nuc, decay_type=decay_type)
-        if decay_data is None:
-            continue
-        data.append(decay_data)
+    if not filepath.endswith(".csv"):
+        raise ValueError(f"Filepath must point to a csv file. Now got {filepath}")
+    logging.info(msg=f"Reading file {filepath}")
+    with open(filepath, "r") as f:
+        data = f.readlines()
+    logging.info(msg=f"Done reading file {filepath}")
     return data
 
 
@@ -200,8 +134,8 @@ def _find_daughter(parent_z: str, parent_n: str, mode: str) -> tuple[str, str, s
 
 def _format_decays(data: dict) -> dict:
     """
-    Formats the decay data retrieved from the csv file to the same format that
-    the decay_rads API endpoint returns
+    Formats the decay data retrieved from the csv file to maybe a bit more
+    convenient form
     :param data:
     :return:
     """
@@ -263,16 +197,22 @@ def _fetch_from_csv(nuc: str, data: list[str], delim: str = ",") -> dict:
     return data_dict
 
 
-def get_data(nuc: str, csv_data: list[str] = None, delim: str = ",") -> dict:
+def get_data(nuc: str, csv_path: str = None, delim: str = ",") -> dict:
     """
     :param nuc:
-    :param csv_data:
+    :param csv_path:
     :param delim:
     :return:
     """
-    if csv_data is None:
-        nuc_data = _get_nuclide_data(nuc=nuc)
-        decays = _get_decay_data(nuc=nuc)
-        nuc_data["decays"] = decays
-        return nuc_data
+    if csv_path is None:
+        output_path = "nuclide_data.csv"
+        if not os.path.exists(path=output_path):
+            logging.info(msg=f"No csv path provided, fetching data from the API.")
+            url = f"{BASE_URL}fields=ground_states&nuclides=all"
+            res = _send_request(url=url)
+            _save_csv(data=res.text, filepath=output_path)
+        else:
+            logging.info(msg=f"csv file already created, no need to send the request again.")
+        csv_path = output_path
+    csv_data = _read_csv(filepath=csv_path)
     return _fetch_from_csv(nuc=nuc, data=csv_data, delim=delim)
