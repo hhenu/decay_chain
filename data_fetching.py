@@ -42,9 +42,10 @@ def _send_request(url: str) -> Response:
     return res
 
 
-def _parse_value_type(value: str) -> str | int | float:
+def _convert_value(value: str) -> str | int | float:
     """
-    Converts the given value to either to int or float
+    Converts the given value to either int or float if possible, otherwise
+    the value stays as a string
     :param value:
     :return:
     """
@@ -132,11 +133,12 @@ def _find_daughter(parent_z: str, parent_n: str, mode: str) -> tuple[str, str, s
     raise NotImplementedError(f"Unknown decay mode ({mode}) detected.")
 
 
-def _format_decays(data: dict) -> dict:
+def _format_decays(data: dict, nuc: str) -> dict:
     """
     Formats the decay data retrieved from the csv file to maybe a bit more
     convenient form
     :param data:
+    :param nuc:
     :return:
     """
     headers_to_keep = ["z", "n", "symbol", "atomic_mass", "half_life_sec"]
@@ -149,7 +151,8 @@ def _format_decays(data: dict) -> dict:
         mode = data[mode_header].lower()
         percentage = data[percentage_header]
         if mode not in CSV_DECAY_MODES:
-            logging.info(msg=f"Unsupported decay mode {mode}, ignoring it for now.")
+            logging.info(msg=f"Unsupported decay mode {mode} for {nuc}, "
+                             f"ignoring it")
             continue
         sym, z, n = _find_daughter(parent_z=data["z"], parent_n=data["n"], mode=mode)
         decays.append({"decay_%": percentage,
@@ -188,12 +191,12 @@ def _fetch_from_csv(nuc: str, data: list[str], delim: str = ",") -> dict:
             continue
         for h in CSV_HEADERS:
             value = line[header_inds[h]]
-            data_dict[h] = _parse_value_type(value=value)
+            data_dict[h] = _convert_value(value=value)
         break
     else:
         # If the for loop finishes without breaking, we didn't find any data
         raise ValueError(f"No data found for nuclide {nuc}")
-    data_dict = _format_decays(data=data_dict)
+    data_dict = _format_decays(data=data_dict, nuc=nuc)
     return data_dict
 
 
@@ -212,7 +215,10 @@ def get_data(nuc: str, csv_path: str = None, delim: str = ",") -> dict:
             res = _send_request(url=url)
             _save_csv(data=res.text, filepath=output_path)
         else:
-            logging.info(msg=f"csv file already created, no need to send the request again.")
+            logging.info(msg=f"csv file {output_path} already exists, no need to "
+                             f"send the request again")
         csv_path = output_path
+    else:
+        logging.info(msg=f"csv file {csv_path} provided, using it as the data source")
     csv_data = _read_csv(filepath=csv_path)
     return _fetch_from_csv(nuc=nuc, data=csv_data, delim=delim)
