@@ -7,7 +7,7 @@ products as a function of time.
 import logging
 
 from nuclide import Nuclide
-from data_fetching import get_data
+from data_fetching import DataHandler
 
 logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s",
                     level=logging.DEBUG)
@@ -31,19 +31,18 @@ def _get_daughters(decay_data: list[dict]) -> list:
     return daughters
 
 
-def get_nuclides(src_nuclei: str, csv_path: str = None, delim: str = ",") -> None:
+def get_nuclides(src_nuclei: str, data_handler: DataHandler) -> None:
     """
     :param src_nuclei:
-    :param csv_path:
-    :param delim:
+    :param data_handler:
     :return:
     """
     stack = [src_nuclei]
     nuclides = []
     while stack:
         nuc = stack.pop()
-        logging.info(msg=f"Current nuclide: {nuc}")
-        nuc_data = get_data(nuc=nuc, csv_path=csv_path, delim=delim)
+        logging.info(msg=f"Found nuclide: {nuc}")
+        nuc_data = data_handler.get_data(nuc=nuc)
         sym = nuc_data["symbol"]
         n = nuc_data["n"]
         z = nuc_data["z"]
@@ -57,9 +56,10 @@ def get_nuclides(src_nuclei: str, csv_path: str = None, delim: str = ",") -> Non
 
 
 def main() -> None:
-    src_nuclei = "xe135"
+    src_nuclei = "u238"
     csv_path = "livechart.csv"
-    get_nuclides(src_nuclei=src_nuclei, csv_path=None)
+    data_handler = DataHandler(input_csv_path=csv_path)
+    get_nuclides(src_nuclei=src_nuclei, data_handler=data_handler)
 
 
 if __name__ == "__main__":
