@@ -65,6 +65,13 @@ class Nuclide:
         """
         return -self.lamda * self.n
 
+    def __eq__(self, other: Nuclide) -> bool:
+        """
+        :param other:
+        :return:
+        """
+        return self.name == other.name
+
     def __repr__(self) -> str:
         """
         :return:
