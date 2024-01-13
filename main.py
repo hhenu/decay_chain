@@ -66,9 +66,10 @@ def get_nuclides(src_nuclide: str, data_handler: DataHandler) -> list[Nuclide]:
     nuclide_lst = []
     # Add the parents and daughters to the Nuclide objects
     for nuclide, inner_dict in nuclide_dict.items():
-        for parent, daughter, in zip(inner_dict["parents"], inner_dict["daughters"]):
-            nuclide_objs[nuclide].sources.append(nuclide_objs[daughter])
-            nuclide_objs[nuclide].sinks.append(nuclide_objs[parent])
+        for parent in inner_dict["parents"]:
+            nuclide_objs[nuclide].add_source(nuclide_objs[parent])
+        for daughter in inner_dict["daughters"]:
+            nuclide_objs[nuclide].add_sink(nuclide_objs[daughter])
         nuclide_lst.append(nuclide_objs[nuclide])
     return nuclide_lst
 
