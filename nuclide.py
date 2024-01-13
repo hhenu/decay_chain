@@ -37,8 +37,8 @@ class Nuclide:
             self.n = self.n0()
         else:
             self.n = 0
-        self.sources = []
-        self.sinks = []
+        self._sources = []
+        self._sinks = []
 
     def n0(self) -> float:
         """
@@ -47,18 +47,25 @@ class Nuclide:
         """
         return N_A * self.m0 / self.atomic_mass
 
-    def add_source(self, src: Nuclide) -> None:
+    def add_source(self, nuc: Nuclide) -> None:
         """
-        :param src:
+        :param nuc:
         :return:
         """
-        self.sources.append(src)
+        self._sources.append(nuc)
 
-    def calc_source(self) -> float:
+    def add_sink(self, nuc: Nuclide) -> None:
+        """
+        :param nuc:
+        :return:
+        """
+        self._sinks.append(nuc)
+
+    def source_term(self) -> float:
         """
         :return:
         """
-        return sum(src.lamda * src.n for src in self.sources)
+        return sum(src.lamda * src.n for src in self._sources)
 
     def calc_loss(self) -> float:
         """
