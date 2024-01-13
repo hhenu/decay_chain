@@ -38,6 +38,7 @@ class Nuclide:
         else:
             self.n = 0
         self.sources = []
+        self.sinks = []
 
     def n0(self) -> float:
         """
@@ -72,11 +73,17 @@ class Nuclide:
         """
         return self.name == other.name
 
+    def __hash__(self) -> int:
+        """
+        :return:
+        """
+        return self.name.__hash__()
+
     def __repr__(self) -> str:
         """
         :return:
         """
-        return self.name
+        return f"{self.__class__.__name__}({self.name})"
 
     def __str__(self) -> str:
         """
