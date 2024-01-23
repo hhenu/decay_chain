@@ -4,6 +4,7 @@ File for a Nuclide object
 
 from __future__ import annotations
 
+import decay
 import numpy as np
 
 # Some constants
@@ -34,32 +35,41 @@ class Nuclide:
             self.lamda = LN2 / halflife  # Decay constant [1/s]
         self.m0 = m0
         if self.m0 is not None:
-            self.n = self.n0()
+            self.n0 = self.calc_n0()
         else:
-            self.n = 0
+            self.n0 = 0
+        self.n = 0
+        self.parents = []
+        self.daughters = []
         self._sources = []
-        self._sinks = []
 
-    def n0(self) -> float:
+    def calc_n0(self) -> float:
         """
         The number of nuclides at the start
         :return:
         """
         return N_A * self.m0 / self.atomic_mass
 
-    def add_source(self, nuc: Nuclide) -> None:
+    def add_parent(self, nuc: Nuclide) -> None:
         """
         :param nuc:
         :return:
         """
-        self._sources.append(nuc)
+        self.parents.append(nuc)
 
-    def add_sink(self, nuc: Nuclide) -> None:
+    def add_daughter(self, nuc: Nuclide) -> None:
         """
         :param nuc:
         :return:
         """
-        self._sinks.append(nuc)
+        self.daughters.append(nuc)
+
+    def add_source(self, src: decay.Decay) -> None:
+        """
+        :param src:
+        :return:
+        """
+        self._sources.append(src)
 
     def source_term(self) -> float:
         """
@@ -67,7 +77,7 @@ class Nuclide:
         """
         return sum(src.lamda * src.n for src in self._sources)
 
-    def calc_loss(self) -> float:
+    def loss_term(self) -> float:
         """
         :return:
         """
@@ -79,12 +89,6 @@ class Nuclide:
         :return:
         """
         return self.name == other.name
-
-    def __hash__(self) -> int:
-        """
-        :return:
-        """
-        return self.name.__hash__()
 
     def __repr__(self) -> str:
         """
