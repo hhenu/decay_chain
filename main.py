@@ -6,6 +6,9 @@ products as a function of time.
 
 import logging
 
+import numpy as np
+
+from decay import Decay
 from nuclide import Nuclide
 from data_fetching import DataHandler
 
@@ -13,12 +16,12 @@ logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s",
                     level=logging.DEBUG)
 
 
-def _get_daughters(decay_data: list[dict]) -> list:
+def _get_daughters(decay_data: list[dict]) -> list[str]:
     """
     :param decay_data:
     :return:
     """
-    logging.info(msg=f"Parsing daughter nuclides")
+    logging.info(msg="Parsing daughter nuclides")
     daughters = []
     for decay in decay_data:
         sym = decay["d_symbol"]
@@ -49,13 +52,16 @@ def get_nuclides(src_nuclide: str, data_handler: DataHandler) -> list[Nuclide]:
         z = nuc_data["z"]
         mass = nuc_data["atomic_mass"]
         halflife = nuc_data["half_life_sec"]
+        decays = nuc_data["decays"]
         if not halflife:
             halflife = None
         if nuc not in nuclide_dict.keys():
-            nuclide_objs[nuc] = Nuclide(sym=sym, n=n, z=z, halflife=halflife, atom_mass=mass)
-            nuclide_dict[nuc] = {"parents": set(), "daughters": set()}
-        for daughter in _get_daughters(nuc_data["decays"]):
+            nuclide_objs[nuc] = Nuclide(sym=sym, n=n, z=z, halflife=halflife,
+                                        atom_mass=mass)
+            nuclide_dict[nuc] = {"parents": set(), "daughters": set(), "decays": []}
+        for daughter in _get_daughters(decay_data=decays):
             nuclide_dict[nuc]["daughters"].add(daughter)
+            nuclide_dict[nuc]["decays"] = decays
             stack.append(daughter)
 
     # Fill the parent sets as well
@@ -64,20 +70,30 @@ def get_nuclides(src_nuclide: str, data_handler: DataHandler) -> list[Nuclide]:
             nuclide_dict[daughter]["parents"].add(parent)
 
     nuclide_lst = []
-    # Add the parents and daughters to the Nuclide objects
+    # Create a list of nuclides with info about parent nuclides, daughter nuclides,
+    # and source terms
     for nuclide, inner_dict in nuclide_dict.items():
+        nuc_obj = nuclide_objs[nuclide]
         for parent in inner_dict["parents"]:
-            nuclide_objs[nuclide].add_source(nuclide_objs[parent])
-        for daughter in inner_dict["daughters"]:
-            nuclide_objs[nuclide].add_sink(nuclide_objs[daughter])
-        nuclide_lst.append(nuclide_objs[nuclide])
+            nuc_obj.add_parent(nuc=nuclide_objs[parent])
+        for daughter, decay in zip(inner_dict["daughters"], inner_dict["decays"]):
+            nuc_obj.add_daughter(nuc=nuclide_objs[daughter])
+            # TODO: Add parent field to Decay and use it here
+            d = Decay(parent=nuc_obj, daughter=nuclide_objs[daughter],
+                      lamda=nuc_obj.lamda, decay_ratio=decay["decay_%"])
+            nuc_obj.add_source(src=d)
+        nuclide_lst.append(nuc_obj)
+
     return nuclide_lst
 
 
 def main() -> None:
+    # Initial setup
     src_nuclide = "xe135"
     csv_path = "livechart.csv"
     data_handler = DataHandler(input_csv_path=csv_path)
+
+    # Get all the nuclides (source and decay products)
     nuclides = get_nuclides(src_nuclide=src_nuclide, data_handler=data_handler)
 
 
