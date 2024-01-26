@@ -50,7 +50,7 @@ class DataHandler:
         :param delim:
         """
         if output_csv_path is None:
-            self.output_csv_path = "nuclide_data.csv"
+            self.output_csv_path = "data/nuclide_data.csv"
         else:
             self.output_csv_path = output_csv_path
         if input_csv_path is None:
