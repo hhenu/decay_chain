@@ -33,15 +33,17 @@ class Nuclide:
         self.halflife = halflife
         if halflife is not None:
             self.lamda = LN2 / halflife  # Decay constant [1/s]
+        else:
+            self.lamda = 0
         self.m0 = m0
         if self.m0 is not None:
-            self.n0 = self.calc_n0()
+            self.n = self.calc_n0()
         else:
-            self.n0 = 0
-        self.n = 0
+            self.n = 0
         self.parents = []
         self.daughters = []
         self._sources = []
+        self.n_arr = []
 
     def calc_n0(self) -> float:
         """
@@ -75,13 +77,13 @@ class Nuclide:
         """
         :return:
         """
-        return sum(src.lamda * src.n for src in self._sources)
+        return sum(dec.calculate() for dec in self._sources)
 
     def loss_term(self) -> float:
         """
         :return:
         """
-        return -self.lamda * self.n
+        return self.lamda * self.n
 
     def __eq__(self, other: Nuclide) -> bool:
         """

@@ -17,6 +17,8 @@ class Decay:
         self.parent = parent
         self.daughter = daughter
         self.lamda = lamda
+        if not (0 <= decay_ratio <= 1):
+            raise ValueError(f"decay_ratio must be between 0 and 1, now got {decay_ratio}.")
         self.decay_ratio = decay_ratio
         self.lamda_eff = lamda * decay_ratio  # "Effective" decay coefficient [1/s]
 
